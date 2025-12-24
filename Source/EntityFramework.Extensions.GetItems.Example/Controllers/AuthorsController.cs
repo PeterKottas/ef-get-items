@@ -1,8 +1,11 @@
-namespace FilteringTest.Controllers;
+namespace EntityFramework.Extensions.GetItems.Example.Controllers;
 
-using FilteringTest.Data;
-using FilteringTest.Models;
-using FilteringTest.Utils;
+using System.Threading.Tasks;
+using EntityFramework.Extensions.GetItems;
+using EntityFramework.Extensions.GetItems.Example.Data;
+using EntityFramework.Extensions.GetItems.Example.Models;
+using EntityFramework.Extensions.GetItems.Example.Utils;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,19 +46,13 @@ public class AuthorsController : ControllerBase
     {
         var paginatedData = await _contextFactory.GetItems(
             context => context.Authors.AsQueryable(),
-            new GetAuthorsRequest
-            {
-                Count = 25,
-                Filters = [
-                    new(){
-                        Field = AuthorPropertyNames.Name,
-                        Value = "John",
-                        Operator = FilterOperatorEnum.StartsWith
-                    }
-                    ]
-            },
+            request,
             a => a.Id,
-            PropertyNameMappersUtil.AuthorPropertyNameToPath
+            PropertyNameMappersUtil.AuthorPropertyNameToPath,
+            new GetItemsOptions()
+            {
+                DebugQuery = true,
+            }
         );
 
         var response = new GetAuthorsResponse
@@ -65,3 +62,4 @@ public class AuthorsController : ControllerBase
         return Ok(response);
     }
 }
+

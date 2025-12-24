@@ -1,8 +1,9 @@
-namespace FilteringTest.Controllers;
+namespace EntityFramework.Extensions.GetItems.Example.Controllers;
 
-using FilteringTest.Data;
-using FilteringTest.Models;
-using FilteringTest.Utils;
+using EntityFramework.Extensions.GetItems;
+using EntityFramework.Extensions.GetItems.Example.Data;
+using EntityFramework.Extensions.GetItems.Example.Models;
+using EntityFramework.Extensions.GetItems.Example.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -143,3 +144,4 @@ public class DashboardController : ControllerBase
         return Ok(response);
     }
 }
+

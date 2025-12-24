@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Source/EntityFramework.Extensions.GetItems.Example/EntityFramework.Extensions.GetItems.Example.csproj" />
+  <Project Path="Source/EntityFramework.Extensions.GetItems.UnitTests/EntityFramework.Extensions.GetItems.UnitTests.csproj" />
+  <Project Path="Source/EntityFramework.Extensions.GetItems/EntityFramework.Extensions.GetItems.csproj" />
+</Solution>

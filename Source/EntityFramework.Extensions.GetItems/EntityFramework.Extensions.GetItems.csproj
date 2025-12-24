@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>EntityFramework.Extensions.GetItems</RootNamespace>
+    
+    <!-- NuGet Package Metadata -->
+    <PackageId>EntityFramework.Extensions.GetItems</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Peter Kottas</Authors>
+    <Company>Peter Kottas</Company>
+    <Description>Easy pagination, filtering, and sorting for Entity Framework Core. Works seamlessly in APIs and business logic with support for dynamic queries, multiple filter operators, and flexible pagination strategies.</Description>
+    <PackageTags>entityframework;ef-core;pagination;filtering;sorting;linq;dotnet;csharp</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/PeterKottas/ef-get-items</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/PeterKottas/ef-get-items</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    
+    <!-- Build Configuration -->
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.22" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="EntityFramework.Extensions.GetItems.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
+

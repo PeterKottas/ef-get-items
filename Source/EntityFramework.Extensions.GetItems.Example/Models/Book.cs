@@ -1,4 +1,7 @@
-namespace FilteringTest.Models;
+using System;
+using System.Collections.Generic;
+
+namespace EntityFramework.Extensions.GetItems.Example.Models;
 
 public class Book
 {
@@ -7,3 +10,4 @@ public class Book
     public DateTime PublishedOn { get; set; }
     public ICollection<Author> Authors { get; set; } = new List<Author>();
 }
+

@@ -1,7 +1,10 @@
-namespace FilteringTest.Data;
+namespace EntityFramework.Extensions.GetItems.Example.Data;
 
 using Microsoft.EntityFrameworkCore;
-using FilteringTest.Models;
+using EntityFramework.Extensions.GetItems.Example.Models;
+using System.Linq;
+using System.Collections.Generic;
+using System;
 
 public class LibraryDbContext : DbContext
 {
@@ -77,8 +80,8 @@ public class LibraryDbContext : DbContext
             new() { Id = authorIds[1], Name = "Jane", Surname = "Austen", DateOfBirth = new DateTime(1775, 12, 16), Gender = Gender.Female },
             new() { Id = authorIds[2], Name = "Ernest", Surname = "Hemingway", DateOfBirth = new DateTime(1899, 7, 21), Gender = Gender.Male },
             new() { Id = authorIds[3], Name = "F. Scott", Surname = "Fitzgerald", DateOfBirth = new DateTime(1896, 9, 24), Gender = Gender.Male },
-            new() { Id = authorIds[4], Name = "Charlotte", Surname = "Brontë", DateOfBirth = new DateTime(1816, 4, 21), Gender = Gender.Female },
-            new() { Id = authorIds[5], Name = "Emily", Surname = "Brontë", DateOfBirth = new DateTime(1818, 7, 30), Gender = Gender.Female },
+            new() { Id = authorIds[4], Name = "Charlotte", Surname = "BrontÃ«", DateOfBirth = new DateTime(1816, 4, 21), Gender = Gender.Female },
+            new() { Id = authorIds[5], Name = "Emily", Surname = "BrontÃ«", DateOfBirth = new DateTime(1818, 7, 30), Gender = Gender.Female },
             new() { Id = authorIds[6], Name = "Charles", Surname = "Dickens", DateOfBirth = new DateTime(1812, 2, 7), Gender = Gender.Male },
             new() { Id = authorIds[7], Name = "Leo", Surname = "Tolstoy", DateOfBirth = new DateTime(1828, 9, 9), Gender = Gender.Male },
             new() { Id = authorIds[8], Name = "Fyodor", Surname = "Dostoevsky", DateOfBirth = new DateTime(1821, 11, 11), Gender = Gender.Male },
@@ -86,7 +89,7 @@ public class LibraryDbContext : DbContext
             new() { Id = authorIds[10], Name = "Oscar", Surname = "Wilde", DateOfBirth = new DateTime(1854, 10, 16), Gender = Gender.Male },
             new() { Id = authorIds[11], Name = "Virginia", Surname = "Woolf", DateOfBirth = new DateTime(1882, 1, 25), Gender = Gender.Female },
             new() { Id = authorIds[12], Name = "James", Surname = "Joyce", DateOfBirth = new DateTime(1882, 2, 2), Gender = Gender.Male },
-            new() { Id = authorIds[13], Name = "Gabriel García", Surname = "Márquez", DateOfBirth = new DateTime(1927, 3, 6), Gender = Gender.Male },
+            new() { Id = authorIds[13], Name = "Gabriel GarcÃ­a", Surname = "MÃ¡rquez", DateOfBirth = new DateTime(1927, 3, 6), Gender = Gender.Male },
             new() { Id = authorIds[14], Name = "Isabel", Surname = "Allende", DateOfBirth = new DateTime(1942, 8, 2), Gender = Gender.Female },
             new() { Id = authorIds[15], Name = "Haruki", Surname = "Murakami", DateOfBirth = new DateTime(1949, 1, 12), Gender = Gender.Male },
             new() { Id = authorIds[16], Name = "J.K.", Surname = "Rowling", DateOfBirth = new DateTime(1965, 7, 31), Gender = Gender.Female },
@@ -155,8 +158,8 @@ public class LibraryDbContext : DbContext
             new() { { "BookId", bookIds[5] }, { "AuthorId", authorIds[2] } }, // The Old Man and the Sea - Hemingway
             new() { { "BookId", bookIds[6] }, { "AuthorId", authorIds[2] } }, // For Whom the Bell Tolls - Hemingway
             new() { { "BookId", bookIds[7] }, { "AuthorId", authorIds[3] } }, // The Great Gatsby - Fitzgerald
-            new() { { "BookId", bookIds[8] }, { "AuthorId", authorIds[4] } }, // Jane Eyre - Charlotte Brontë
-            new() { { "BookId", bookIds[9] }, { "AuthorId", authorIds[5] } }, // Wuthering Heights - Emily Brontë
+            new() { { "BookId", bookIds[8] }, { "AuthorId", authorIds[4] } }, // Jane Eyre - Charlotte BrontÃ«
+            new() { { "BookId", bookIds[9] }, { "AuthorId", authorIds[5] } }, // Wuthering Heights - Emily BrontÃ«
             new() { { "BookId", bookIds[10] }, { "AuthorId", authorIds[6] } }, // Oliver Twist - Dickens
             new() { { "BookId", bookIds[11] }, { "AuthorId", authorIds[6] } }, // Great Expectations - Dickens
             new() { { "BookId", bookIds[12] }, { "AuthorId", authorIds[7] } }, // War and Peace - Tolstoy
@@ -167,8 +170,8 @@ public class LibraryDbContext : DbContext
             new() { { "BookId", bookIds[17] }, { "AuthorId", authorIds[10] } }, // The Picture of Dorian Gray - Wilde
             new() { { "BookId", bookIds[18] }, { "AuthorId", authorIds[11] } }, // Mrs. Dalloway - Woolf
             new() { { "BookId", bookIds[19] }, { "AuthorId", authorIds[12] } }, // Ulysses - Joyce
-            new() { { "BookId", bookIds[20] }, { "AuthorId", authorIds[13] } }, // One Hundred Years - Márquez
-            new() { { "BookId", bookIds[21] }, { "AuthorId", authorIds[13] } }, // Love in the Time of Cholera - Márquez
+            new() { { "BookId", bookIds[20] }, { "AuthorId", authorIds[13] } }, // One Hundred Years - MÃ¡rquez
+            new() { { "BookId", bookIds[21] }, { "AuthorId", authorIds[13] } }, // Love in the Time of Cholera - MÃ¡rquez
             new() { { "BookId", bookIds[22] }, { "AuthorId", authorIds[14] } }, // The House of the Spirits - Allende
             new() { { "BookId", bookIds[23] }, { "AuthorId", authorIds[14] } }, // Paula - Allende
             new() { { "BookId", bookIds[24] }, { "AuthorId", authorIds[15] } }, // Norwegian Wood - Murakami
@@ -192,3 +195,4 @@ public class LibraryDbContext : DbContext
         modelBuilder.Entity("BookAuthor").HasData(bookAuthorRelationships);
     }
 }
+

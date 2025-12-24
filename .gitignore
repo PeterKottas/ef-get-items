@@ -67,3 +67,7 @@ $RECYCLE.BIN/
 *.lnk
 
 .vs
+
+### NuGet ###
+*.nupkg
+nupkg/

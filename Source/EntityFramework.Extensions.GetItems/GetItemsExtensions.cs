@@ -1,212 +1,349 @@
-﻿namespace FilteringTest.Utils;
+namespace EntityFramework.Extensions.GetItems;
 
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Threading.Tasks;
 
-public class PaginatedData<TEntity>
-{
-    public TEntity[] Items { get; }
-    public int Page { get; }
-    public int Count { get; }
-    public long TotalCount { get; }
-    public int TotalPages => (int)Math.Ceiling((double)TotalCount / Count);
-
-    public PaginatedData(TEntity[] items, int page, int count, long totalCount)
-    {
-        Items = items;
-        Page = page;
-        Count = count;
-        TotalCount = totalCount;
-    }
-}
-
-public class BaseGetItemsRequest<TPropertyNameEnum, TId>
-    where TPropertyNameEnum : struct, IConvertible
-{
-    public TId[]? Ids { get; set; }
-    public TId[]? ExceptIds { get; set; }
-    public int? Page { get; set; }
-    public int? Count { get; set; }
-    public int? Skip { get; set; }
-    public GetItemsFilter<TPropertyNameEnum>[]? Filters { get; set; }
-    public IEnumerable<GetItemsSorter<TPropertyNameEnum>>? Sort { get; set; }
-    public long? TotalCount { get; set; }
-}
-
-public class GetItemsFilter<TPropertyNameEnum>
-    where TPropertyNameEnum : struct, IConvertible
-{
-    public TPropertyNameEnum? Field { get; set; }
-    public FilterOperatorEnum Operator { get; set; }
-    public string? Value { get; set; }
-    public string[]? Values { get; set; }
-    public FilterLogicEnum Logic { get; set; }
-    public FilterLogicEnum FiltersLogic { get; set; } = FilterLogicEnum.And;
-    public FilterArrayAccessorLogic ArrayAccessorLogic { get; set; } = FilterArrayAccessorLogic.Any;
-    public GetItemsFilter<TPropertyNameEnum>[]? Filters { get; set; }
-}
-
-public class GetItemsSorter<TPropertyNameEnum>
-    where TPropertyNameEnum : struct, IConvertible
-{
-    public TPropertyNameEnum Field { get; set; }
-    public OrderByEnum Order { get; set; } = OrderByEnum.Ascending;
-}
-
-public enum OrderByEnum
-{
-    Ascending,
-    Descending
-}
-
-public enum FilterOperatorEnum
-{
-    Eq,
-    Neq,
-    Lt,
-    Lte,
-    Gt,
-    Gte,
-    StartsWith,
-    EndsWith,
-    Contains,
-    NotContains,
-    ContainsAll,
-    NotContainsAll,
-    Flag,
-    NotFlag,
-    AnyFlag,
-    NotAnyFlag
-}
-
-public enum FilterLogicEnum
-{
-    And,
-    Or
-}
-
-public enum FilterArrayAccessorLogic
-{
-    Any,
-    All
-}
-
-public class PaginationConstants
-{
-    public const int DefaultCount = 25;
-
-    public const int DefaultPage = 1;
-
-    public const int DefaultSkip = 0;
-}
-
-[AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
-public class LinqExpressionAttribute : System.Attribute
-{
-    public string ExpressionName { get; }
-
-    public LinqExpressionAttribute(string expressionName)
-    {
-        ExpressionName = expressionName;
-    }
-}
-
-public class ExpressionsRepository
-{
-    public static readonly Dictionary<string, Func<Expression, Expression>> Expressions = new()
-    {
-        /*{
-            nameof(CompanyUserModelBase) + "_" + nameof(CompanyUserModelBase.EffectiveVisibility),
-            prev => {
-                var hiddenUntilProp = Expression.Property(prev, nameof(CompanyUserModelBase.HiddenUntil));
-                var hiddenUntilHasValue = Expression.Property(hiddenUntilProp, nameof(Nullable<DateTime>.HasValue));
-                var hiddenUntilValue = Expression.Property(hiddenUntilProp, nameof(Nullable<DateTime>.Value));
-
-                var condition = Expression.AndAlso(
-                    hiddenUntilHasValue, // Check if HiddenUntil.HasValue == true
-                    Expression.GreaterThan(hiddenUntilValue, Expression.Constant(DateTime.UtcNow)) // Compare value
-                );
-
-                return Expression.Condition(
-                    condition,
-                    Expression.Constant(CompanyUserVisibilityEnum.Hidden),
-                    Expression.Property(prev, nameof(CompanyUserModelBase.Visibility))
-                );
-            }
-        }*/
-    };
-}
-
+/// <summary>
+/// Provides extension methods for querying Entity Framework Core entities with pagination, filtering, and sorting.
+/// </summary>
 public static class GetItemsExtension
 {
-    public static readonly MethodInfo AnyMethod = typeof(Enumerable).GetMethods()
+    internal static readonly MethodInfo AnyMethod = typeof(Enumerable).GetMethods()
                 .First(m => m.Name == "Any" && m.GetParameters().Length == 2);
 
-    public static readonly MethodInfo AllMethod = typeof(Enumerable).GetMethods()
+    internal static readonly MethodInfo AllMethod = typeof(Enumerable).GetMethods()
                 .First(m => m.Name == "All" && m.GetParameters().Length == 2);
 
-    public static readonly MethodInfo WhereMethod = typeof(Enumerable).GetMethods()
+    internal static readonly MethodInfo WhereMethod = typeof(Enumerable).GetMethods()
                 .First(m => m.Name == "Where" && m.GetParameters().Length == 2);
 
-    public static readonly MethodInfo CountMethod = typeof(Enumerable).GetMethods()
+    internal static readonly MethodInfo CountMethod = typeof(Enumerable).GetMethods()
                 .First(m => m.Name == "Count" && m.GetParameters().Length == 1);
 
-    public static readonly MethodInfo ContainsMethod = typeof(Enumerable).GetMethods()
+    internal static readonly MethodInfo ContainsMethod = typeof(Enumerable).GetMethods()
                 .First(m => m.Name == "Contains" && m.GetParameters().Length == 2);
 
-    public static async Task<PaginatedData<TEntity>> GetItems<TDBContext, TEntity, TPropertyNameEnum, TId>(
-               this IDbContextFactory<TDBContext> contextFactory,
-               Func<TDBContext, IQueryable<TEntity>> query,
-               BaseGetItemsRequest<TPropertyNameEnum, TId> request
-        ) where TPropertyNameEnum : struct, IConvertible where TDBContext : DbContext where TEntity : class
-    {
-        return await contextFactory.GetItems(query, request, (item) => default, null);
-    }
-
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support using an <see cref="IDbContextFactory{TContext}"/>.
+    /// </summary>
+    /// <typeparam name="TDBContext">The DbContext type.</typeparam>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="contextFactory">The DbContext factory for creating database contexts.</param>
+    /// <param name="query">A function that returns the base queryable from a DbContext.</param>
+    /// <param name="request">The request containing pagination, filter, and sort parameters.</param>
+    /// <param name="options">Optional configuration options. Uses defaults if not specified.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
     public static async Task<PaginatedData<TEntity>> GetItems<TDBContext, TEntity, TPropertyNameEnum, TId>(
                this IDbContextFactory<TDBContext> contextFactory,
                Func<TDBContext, IQueryable<TEntity>> query,
                BaseGetItemsRequest<TPropertyNameEnum, TId> request,
-               Expression<Func<TEntity, TId>> idAccessor,
+               GetItemsOptions? options = null
+        ) where TPropertyNameEnum : struct, IConvertible where TDBContext : DbContext where TEntity : class
+    {
+        return await contextFactory.GetItems(query, request, null, null, options ?? GetItemsOptions.Default);
+    }
+
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support using an <see cref="IDbContextFactory{TContext}"/>.
+    /// </summary>
+    /// <typeparam name="TDBContext">The DbContext type.</typeparam>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="contextFactory">The DbContext factory for creating database contexts.</param>
+    /// <param name="query">A function that returns the base queryable from a DbContext.</param>
+    /// <param name="request">The request containing pagination, filter, and sort parameters.</param>
+    /// <param name="idAccessor">An expression to access the entity's primary key. Required when using Ids or ExceptIds.</param>
+    /// <param name="options">Optional configuration options. Uses defaults if not specified.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    public static async Task<PaginatedData<TEntity>> GetItems<TDBContext, TEntity, TPropertyNameEnum, TId>(
+               this IDbContextFactory<TDBContext> contextFactory,
+               Func<TDBContext, IQueryable<TEntity>> query,
+               BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+               Expression<Func<TEntity, TId>>? idAccessor,
+               GetItemsOptions? options = null
+        ) where TPropertyNameEnum : struct, IConvertible where TDBContext : DbContext where TEntity : class
+    {
+        return await contextFactory.GetItems(query, request, idAccessor, null, options ?? GetItemsOptions.Default);
+    }
+    
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support using an <see cref="IDbContextFactory{TContext}"/>.
+    /// </summary>
+    /// <typeparam name="TDBContext">The DbContext type.</typeparam>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="contextFactory">The DbContext factory for creating database contexts.</param>
+    /// <param name="query">A function that returns the base queryable from a DbContext.</param>
+    /// <param name="request">The request containing pagination, filter, and sort parameters.</param>
+    /// <param name="idAccessor">An expression to access the entity's primary key. Required when using Ids or ExceptIds.</param>
+    /// <param name="propertyNameToString">A function that maps property enum values to property path arrays. Required when using Filters or Sort.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    public static async Task<PaginatedData<TEntity>> GetItems<TDBContext, TEntity, TPropertyNameEnum, TId>(
+               this IDbContextFactory<TDBContext> contextFactory,
+               Func<TDBContext, IQueryable<TEntity>> query,
+               BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+               Expression<Func<TEntity, TId>>? idAccessor,
                Func<TPropertyNameEnum, string[]>? propertyNameToString
         ) where TPropertyNameEnum : struct, IConvertible where TDBContext : DbContext where TEntity : class
     {
-        await using var totalContext = await contextFactory.CreateDbContextAsync();
-        await using var itemsContext = await contextFactory.CreateDbContextAsync();
+        return await contextFactory.GetItems(query, request, idAccessor, propertyNameToString, null);
+    }
+
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support using an <see cref="IDbContextFactory{TContext}"/>.
+    /// This overload provides full control over all parameters.
+    /// </summary>
+    /// <typeparam name="TDBContext">The DbContext type.</typeparam>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="contextFactory">The DbContext factory for creating database contexts.</param>
+    /// <param name="query">A function that returns the base queryable from a DbContext.</param>
+    /// <param name="request">The request containing pagination, filter, and sort parameters.</param>
+    /// <param name="idAccessor">An expression to access the entity's primary key. Required when using Ids or ExceptIds.</param>
+    /// <param name="propertyNameToString">A function that maps property enum values to property path arrays. Required when using Filters or Sort.</param>
+    /// <param name="options">Configuration options for pagination handling and query debugging.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    /// <exception cref="ArgumentException">Thrown when idAccessor is null but Ids/ExceptIds are used, or when propertyNameToString is null but Filters/Sort are used.</exception>
+    public static async Task<PaginatedData<TEntity>> GetItems<TDBContext, TEntity, TPropertyNameEnum, TId>(
+               this IDbContextFactory<TDBContext> contextFactory,
+               Func<TDBContext, IQueryable<TEntity>> query,
+               BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+               Expression<Func<TEntity, TId>>? idAccessor,
+               Func<TPropertyNameEnum, string[]>? propertyNameToString,
+               GetItemsOptions? options
+        ) where TPropertyNameEnum : struct, IConvertible where TDBContext : DbContext where TEntity : class
+    {
+        options ??= GetItemsOptions.Default;
+        var filteredQuery = BuildFilteredQuery(request, idAccessor, propertyNameToString, options);
+
+        var count = request.Count ?? PaginationConstants.DefaultCount;
+
+        switch (options.PaginationHandling)
+        {
+            case PaginationHandlingEnum.Expensive:
+            {
+                await using var totalContext = await contextFactory.CreateDbContextAsync();
+                await using var itemsContext = await contextFactory.CreateDbContextAsync();
+                
+                var itemsQuery = filteredQuery(query(itemsContext));
+                var debugView = GetQueryDebugView(itemsQuery, options);
+                
+                var totalCountTask = !request.TotalCount.HasValue
+                    ? filteredQuery(query(totalContext)).LongCountAsync()
+                    : Task.FromResult(request.TotalCount.Value);
+
+                var totalItemsTask = itemsQuery.Paginate(request, count);
+
+                await Task.WhenAll(totalCountTask, totalItemsTask);
+                
+                return new PaginatedData<TEntity>(
+                    totalItemsTask.Result,
+                    request.Page ?? PaginationConstants.DefaultPage,
+                    count,
+                    totalCount: totalCountTask.Result,
+                    queryDebugView: debugView
+                );
+            }
+            
+            case PaginationHandlingEnum.Cheap:
+            case PaginationHandlingEnum.None:
+            default:
+            {
+                await using var itemsContext = await contextFactory.CreateDbContextAsync();
+                return await ExecuteNonExpensiveQuery(filteredQuery(query(itemsContext)), request, options, count);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support directly on an <see cref="IQueryable{T}"/>.
+    /// </summary>
+    /// <remarks>
+    /// This overload does not support <see cref="PaginationHandlingEnum.Expensive"/> pagination mode.
+    /// Use the <see cref="IDbContextFactory{TContext}"/> overloads for expensive pagination.
+    /// </remarks>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="query">The base queryable to apply filters, sorting, and pagination to.</param>
+    /// <param name="request">The request containing pagination, filter, and sort parameters.</param>
+    /// <param name="options">Optional configuration options. Uses defaults if not specified. Cannot use Expensive pagination.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <see cref="PaginationHandlingEnum.Expensive"/> is used.</exception>
+    public static Task<PaginatedData<TEntity>> GetItems<TEntity, TPropertyNameEnum, TId>(
+               this IQueryable<TEntity> query,
+               BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+               GetItemsOptions? options = null
+        ) where TPropertyNameEnum : struct, IConvertible where TEntity : class
+    {
+        return query.GetItems(request, null, null, options);
+    }
+
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support directly on an <see cref="IQueryable{T}"/>.
+    /// </summary>
+    /// <remarks>
+    /// This overload does not support <see cref="PaginationHandlingEnum.Expensive"/> pagination mode.
+    /// Use the <see cref="IDbContextFactory{TContext}"/> overloads for expensive pagination.
+    /// </remarks>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="query">The base queryable to apply filters, sorting, and pagination to.</param>
+    /// <param name="request">The request containing pagination, filter, and sort parameters.</param>
+    /// <param name="idAccessor">An expression to access the entity's primary key. Required when using Ids or ExceptIds.</param>
+    /// <param name="options">Optional configuration options. Uses defaults if not specified. Cannot use Expensive pagination.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <see cref="PaginationHandlingEnum.Expensive"/> is used.</exception>
+    public static Task<PaginatedData<TEntity>> GetItems<TEntity, TPropertyNameEnum, TId>(
+               this IQueryable<TEntity> query,
+               BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+               Expression<Func<TEntity, TId>>? idAccessor,
+               GetItemsOptions? options = null
+        ) where TPropertyNameEnum : struct, IConvertible where TEntity : class
+    {
+        return query.GetItems(request, idAccessor, null, options);
+    }
+
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support directly on an <see cref="IQueryable{T}"/>.
+    /// This overload provides full control over all parameters except pagination mode.
+    /// </summary>
+    /// <remarks>
+    /// This overload does not support <see cref="PaginationHandlingEnum.Expensive"/> pagination mode because
+    /// it requires parallel queries which need separate DbContext instances from an <see cref="IDbContextFactory{TContext}"/>.
+    /// </remarks>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="query">The base queryable to apply filters, sorting, and pagination to.</param>
+    /// <param name="request">The request containing pagination, filter, and sort parameters.</param>
+    /// <param name="idAccessor">An expression to access the entity's primary key. Required when using Ids or ExceptIds.</param>
+    /// <param name="propertyNameToString">A function that maps property enum values to property path arrays. Required when using Filters or Sort.</param>
+    /// <param name="options">Optional configuration options. Cannot use <see cref="PaginationHandlingEnum.Expensive"/>.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <see cref="PaginationHandlingEnum.Expensive"/> is used.</exception>
+    /// <exception cref="ArgumentException">Thrown when idAccessor is null but Ids/ExceptIds are used, or when propertyNameToString is null but Filters/Sort are used.</exception>
+    public static Task<PaginatedData<TEntity>> GetItems<TEntity, TPropertyNameEnum, TId>(
+               this IQueryable<TEntity> query,
+               BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+               Expression<Func<TEntity, TId>>? idAccessor,
+               Func<TPropertyNameEnum, string[]>? propertyNameToString,
+               GetItemsOptions? options = null
+        ) where TPropertyNameEnum : struct, IConvertible where TEntity : class
+    {
+        options ??= GetItemsOptions.Default;
+        
+        if (options.PaginationHandling == PaginationHandlingEnum.Expensive)
+        {
+            throw new InvalidOperationException(
+                "Expensive pagination requires IDbContextFactory to run parallel queries. " +
+                "Use IDbContextFactory.GetItems() or switch to Cheap/None pagination.");
+        }
+
+        var filteredQuery = BuildFilteredQuery(request, idAccessor, propertyNameToString, options);
+        var count = request.Count ?? PaginationConstants.DefaultCount;
+        
+        return ExecuteNonExpensiveQuery(filteredQuery(query), request, options, count);
+    }
+
+    private static Func<IQueryable<TEntity>, IQueryable<TEntity>> BuildFilteredQuery<TEntity, TPropertyNameEnum, TId>(
+        BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+        Expression<Func<TEntity, TId>>? idAccessor,
+        Func<TPropertyNameEnum, string[]>? propertyNameToString,
+        GetItemsOptions options
+    ) where TPropertyNameEnum : struct, IConvertible where TEntity : class
+    {
+        var hasIds = request.Ids is { Length: > 0 };
+        var hasExceptIds = request.ExceptIds is { Length: > 0 };
+        var hasFilters = request.Filters is { Length: > 0 };
+        var hasSort = request.Sort?.Any() == true;
+        
+        if ((hasIds || hasExceptIds) && idAccessor is null)
+        {
+            throw new ArgumentException(
+                "An idAccessor must be provided when using Ids or ExceptIds in the request. " +
+                "Please provide an expression that identifies the entity's primary key (e.g., e => e.Id).",
+                nameof(idAccessor));
+        }
+        
+        if ((hasFilters || hasSort) && propertyNameToString is null)
+        {
+            throw new ArgumentException(
+                "A propertyNameToString mapping function must be provided when using Filters or Sort in the request. " +
+                "Please provide a function that maps property enum values to property path arrays.",
+                nameof(propertyNameToString));
+        }
+        
         var idsHashSet = new HashSet<TId>(request.Ids ?? []);
         var exceptIdsHashSet = new HashSet<TId>(request.ExceptIds ?? []);
 
-        IQueryable<TEntity> ApplyQueryFilters(IQueryable<TEntity> baseQuery) => baseQuery
+        return baseQuery => baseQuery
             .FilterByIds(idsHashSet, exceptIdsHashSet, idAccessor)
-            .Filters(request.Filters, propertyNameToString)
-            .SortBy(request.Sort, propertyNameToString, idAccessor);
-
-        var totalCountTask = !request.TotalCount.HasValue
-            ? ApplyQueryFilters(query(totalContext)).TotalCount(request, propertyNameToString)
-            : Task.FromResult(request.TotalCount.Value);
-
-        var totalItemsQuery = ApplyQueryFilters(query(itemsContext));
-        var totalItemsTask = totalItemsQuery
-            .Paginate(request, propertyNameToString, idAccessor);
-
-        await Task.WhenAll(totalCountTask, totalItemsTask);
-        return new Tuple<TEntity[], long>(totalItemsTask.Result, totalCountTask.Result).ToPaginatedData(request);
+            .Filters(request.Filters, propertyNameToString, options)
+            .SortBy(request.Sort, propertyNameToString, idAccessor, options);
     }
 
-    public static PaginatedData<TEntity> ToPaginatedData<TEntity, TPropertyNameEnum, TId>(
-               this Tuple<TEntity[], long> paginated,
-                      BaseGetItemsRequest<TPropertyNameEnum, TId> request) where TPropertyNameEnum : struct, IConvertible
-    {
-        return new PaginatedData<TEntity>(paginated.Item1, request.Page ?? PaginationConstants.DefaultPage, request.Count ?? PaginationConstants.DefaultCount, paginated.Item2);
-    }
-
-    public static Task<TEntity[]> Paginate<TEntity, TPropertyNameEnum, TId>(
-    this IQueryable<TEntity> query,
+    private static async Task<PaginatedData<TEntity>> ExecuteNonExpensiveQuery<TEntity, TPropertyNameEnum, TId>(
+        IQueryable<TEntity> query,
         BaseGetItemsRequest<TPropertyNameEnum, TId> request,
-        Func<TPropertyNameEnum, string[]>? propertyNameToString,
-        Expression<Func<TEntity, TId>> idAccessor) where TPropertyNameEnum : struct, IConvertible
+        GetItemsOptions options,
+        int count
+    ) where TPropertyNameEnum : struct, IConvertible where TEntity : class
+    {
+        var debugView = GetQueryDebugView(query, options);
+        
+        if (options.PaginationHandling == PaginationHandlingEnum.Cheap)
+        {
+            var items = await query.Paginate(request, count + 1);
+            var hasNextPage = items.Length > count;
+            var resultItems = hasNextPage ? items.Take(count).ToArray() : items;
+            
+            return new PaginatedData<TEntity>(
+                resultItems,
+                request.Page ?? PaginationConstants.DefaultPage,
+                count,
+                hasNextPage: hasNextPage,
+                queryDebugView: debugView
+            );
+        }
+        else // None
+        {
+            var items = await query.Paginate(request, count);
+            
+            return new PaginatedData<TEntity>(
+                items,
+                request.Page ?? PaginationConstants.DefaultPage,
+                count,
+                queryDebugView: debugView
+            );
+        }
+    }
+
+    private static string? GetQueryDebugView<TEntity>(IQueryable<TEntity> query, GetItemsOptions options)
+    {
+        if (!options.DebugQuery) return null;
+        
+        // Use EF Core's ExpressionPrinter for clean readable output like:
+        // DbSet<Entity>().Where(e => e.IsActive).OrderBy(e => e.Id)
+        return Microsoft.EntityFrameworkCore.Query.ExpressionPrinter.Print(query.Expression);
+    }
+
+    internal static Task<TEntity[]> Paginate<TEntity, TPropertyNameEnum, TId>(
+        this IQueryable<TEntity> query,
+        BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+        int take) where TPropertyNameEnum : struct, IConvertible
     {
         var page = request.Page ?? PaginationConstants.DefaultPage;
         var count = request.Count ?? PaginationConstants.DefaultCount;
@@ -214,17 +351,23 @@ public static class GetItemsExtension
         var finalSkip = (page > 1 ? count * (page - 1) : 0) + skip;
         return query
             .Skip(finalSkip)
-            .Take(count)
+            .Take(take)
             .ToArrayAsync();
     }
 
-    public static IQueryable<TEntity> FilterByIds<TEntity, TId>(
+    internal static IQueryable<TEntity> FilterByIds<TEntity, TId>(
         this IQueryable<TEntity> query,
         HashSet<TId> idsHashSet,
         HashSet<TId> exceptIdsHashSet,
-        Expression<Func<TEntity, TId>> idAccessor)
+        Expression<Func<TEntity, TId>>? idAccessor)
     {
         if (idsHashSet.Count == 0 && exceptIdsHashSet.Count == 0)
+        {
+            return query;
+        }
+        
+        // idAccessor is validated in GetItems, so it should never be null here if we have ids
+        if (idAccessor is null)
         {
             return query;
         }
@@ -262,17 +405,11 @@ public static class GetItemsExtension
         return query;
     }
 
-    public static Task<long> TotalCount<TEntity, TPropertyNameEnum, TId>(
-        this IQueryable<TEntity> query,
-        BaseGetItemsRequest<TPropertyNameEnum, TId> request,
-        Func<TPropertyNameEnum, string[]>? propertyNameToString) where TPropertyNameEnum : struct, IConvertible
-        => query
-            .LongCountAsync();
-
-    public static IQueryable<TEntity> Filters<TEntity, TPropertyNameEnum>(
+    internal static IQueryable<TEntity> Filters<TEntity, TPropertyNameEnum>(
         this IQueryable<TEntity> query,
         GetItemsFilter<TPropertyNameEnum>[]? filters,
-        Func<TPropertyNameEnum, string[]>? propertyNameToString
+        Func<TPropertyNameEnum, string[]>? propertyNameToString,
+        GetItemsOptions options
     ) where TPropertyNameEnum : struct, IConvertible
     {
         // Ignore other code in the other methods, what I want to do here is create one single lambda expression that will be used in the Where method
@@ -280,7 +417,7 @@ public static class GetItemsExtension
         if (filters != null)
         {
             var param = Expression.Parameter(typeof(TEntity), "e");
-            var expression = GetFiltersExpression(param, filters, propertyNameToString);
+            var expression = GetFiltersExpression(param, filters, propertyNameToString, options);
             var expressionLambda = Expression.Lambda<Func<TEntity, bool>>(expression, param);
             var whereQuery = query.Where(expressionLambda);
             return whereQuery;
@@ -288,14 +425,15 @@ public static class GetItemsExtension
         return query;
     }
 
-    public static Expression GetFiltersExpression<TPropertyNameEnum>(
+    internal static Expression GetFiltersExpression<TPropertyNameEnum>(
         Expression param,
         GetItemsFilter<TPropertyNameEnum>[]? filters,
-        Func<TPropertyNameEnum, string[]>? propertyNameToString) where TPropertyNameEnum : struct, IConvertible
+        Func<TPropertyNameEnum, string[]>? propertyNameToString,
+        GetItemsOptions options) where TPropertyNameEnum : struct, IConvertible
     {
         if (filters != null)
         {
-            var expressions = filters.Select(filter => new { Expression = GetFilterExpression(filter, param, propertyNameToString), Filter = filter }).ToList();
+            var expressions = filters.Select(filter => new { Expression = GetFilterExpression(filter, param, propertyNameToString, options), Filter = filter }).ToList();
             //var expression = expressions.Aggregate((left, right) => right.Filter.Logic == FilterLogicEnum.And ? Expression.AndAlso(left.Expression, right.Expression) : Expression.OrElse(left.Expression, right.Expression));
             var expression = expressions.Aggregate((Expression?)null, (left, right) =>
             {
@@ -308,13 +446,14 @@ public static class GetItemsExtension
         return Expression.Constant(true);
     }
 
-    public static Expression GetFilterExpression<TPropertyNameEnum>(
+    internal static Expression GetFilterExpression<TPropertyNameEnum>(
         GetItemsFilter<TPropertyNameEnum> filter,
         Expression param,
-        Func<TPropertyNameEnum, string[]>? propertyNameToString) where TPropertyNameEnum : struct, IConvertible
+        Func<TPropertyNameEnum, string[]>? propertyNameToString,
+        GetItemsOptions options) where TPropertyNameEnum : struct, IConvertible
     {
         var filtersExpression = (filter.Filters is not null && filter.Filters.Length > 0)
-            ? GetFiltersExpression(param, filter.Filters, propertyNameToString)
+            ? GetFiltersExpression(param, filter.Filters, propertyNameToString, options)
             : null;
 
         if (!filter.Field.HasValue)
@@ -329,7 +468,7 @@ public static class GetItemsExtension
             return filtersExpression ?? Expression.Constant(true);
         }
 
-        var propertyNamesByArrayAccessor = NestedPropertyByArrayAccessor(param, propertyNames);
+        var propertyNamesByArrayAccessor = NestedPropertyByArrayAccessor(param, propertyNames, options);
         if (propertyNamesByArrayAccessor.Length > 2)
         {
             throw new ArgumentException("Nested array accessor is not supported. Hint: In your GetPropertyNameString, you included more than 1 array.");
@@ -411,7 +550,7 @@ public static class GetItemsExtension
         }
     }
 
-    public static Expression[] NestedPropertyByArrayAccessor(Expression param, string[] propertyNames)
+    internal static Expression[] NestedPropertyByArrayAccessor(Expression param, string[] propertyNames, GetItemsOptions options)
     {
         List<Expression> propertyNamesList = new() { param };
 
@@ -428,7 +567,7 @@ public static class GetItemsExtension
             if (linqExpressionAttribute != null)
             {
                 var expressionName = linqExpressionAttribute.ExpressionName;
-                if (ExpressionsRepository.Expressions.TryGetValue(expressionName, out var transformExpression))
+                if (options.Expressions.TryGetValue(expressionName, out var transformExpression))
                 {
                     // Apply transformation function
                     propertyNamesList[^1] = transformExpression(result);
@@ -436,7 +575,7 @@ public static class GetItemsExtension
                 }
                 else
                 {
-                    throw new ArgumentException($"Expression '{expressionName}' not found in repository.");
+                    throw new ArgumentException($"Expression '{expressionName}' not found in options.Expressions.");
                 }
             }
 
@@ -460,16 +599,17 @@ public static class GetItemsExtension
         return propertyNamesList.ToArray();
     }
 
-    public static Expression LogicExpression(Expression left, Expression right, FilterLogicEnum logic)
+    internal static Expression LogicExpression(Expression left, Expression right, FilterLogicEnum logic)
     {
         return logic == FilterLogicEnum.And ? Expression.AndAlso(left, right) : Expression.OrElse(left, right);
     }
 
-    public static IQueryable<TEntity> SortBy<TEntity, TPropertyNameEnum, TId>(
+    internal static IQueryable<TEntity> SortBy<TEntity, TPropertyNameEnum, TId>(
         this IQueryable<TEntity> source,
         IEnumerable<GetItemsSorter<TPropertyNameEnum>>? sort,
         Func<TPropertyNameEnum, string[]>? propertyNameToString,
-        Expression<Func<TEntity, TId>>? idAccessor) where TPropertyNameEnum : struct, IConvertible
+        Expression<Func<TEntity, TId>>? idAccessor,
+        GetItemsOptions options) where TPropertyNameEnum : struct, IConvertible
     {
         if (sort != null && sort.Any())
         {
@@ -486,7 +626,7 @@ public static class GetItemsExtension
                 if (property != null)
                 {
                     var parameter = Expression.Parameter(type, "p");
-                    var propertyAccess = NestedPropertyByArrayAccessor(parameter, propertyNames);
+                    var propertyAccess = NestedPropertyByArrayAccessor(parameter, propertyNames, options);
                     if (propertyAccess.Length > 1)
                     {
                         throw new ArgumentException("Array accessor is not supported when sorting. Hint: In your GetPropertyNameString, you included more than 1 array.");
@@ -518,11 +658,11 @@ public static class GetItemsExtension
     }
 
     // This method is used to get string array from propertyNameToString and field name
-    public static string[] GetPropertyNameString<TPropertyNameEnum>(
+    internal static string[] GetPropertyNameString<TPropertyNameEnum>(
                this TPropertyNameEnum field,
                       Func<TPropertyNameEnum, string[]>? propertyNameToString) where TPropertyNameEnum : struct, IConvertible
     {
-        return propertyNameToString?.Invoke(field) ?? [field.ToString()];
+        return propertyNameToString?.Invoke(field) ?? [field.ToString()!];
     }
 
     private static Expression GetBodyExpression<TPropertyNameEnum>(GetItemsFilter<TPropertyNameEnum> filter, Expression member, Expression constant)
@@ -562,7 +702,7 @@ public static class GetItemsExtension
         };
     }
 
-    public static PropertyInfo? GetNestedProperty(Type type, params string[] propertyNames)
+    internal static PropertyInfo? GetNestedProperty(Type type, params string[] propertyNames)
     {
         PropertyInfo? property = null;
         foreach (string propertyName in propertyNames)
@@ -681,8 +821,6 @@ public static class GetItemsExtension
         var memberValueInt = Expression.Convert(memberValue, typeof(int));
         var constantInt = Expression.Convert(constant, typeof(int));
 
-        var hasAnyFlag = Expression.NotEqual(Expression.And(memberValueInt, constantInt), Expression.Constant(0, typeof(int)));
-
         var atLeastOneFlagNotSet = Expression.NotEqual(Expression.And(memberValueInt, constantInt), constantInt);
 
         return isNullable
@@ -692,24 +830,11 @@ public static class GetItemsExtension
 
     private static Expression GetEqualityExpression(Expression memberValue, Expression constant, Expression memberHasValue, bool isNullable, bool isDateTime, bool isDateOnly, bool constantIsNull)
     {
-        if (isDateTime)
+        if (isDateTime || isDateOnly)
         {
-            var memberTicks = Expression.Property(memberValue, "Ticks");
-            var constantTicks = Expression.Property(constant, "Ticks");
-            var memberTicksFloored = Expression.Divide(memberTicks, Expression.Constant(TimeSpan.TicksPerMillisecond));
-            var constantTicksFloored = Expression.Divide(constantTicks, Expression.Constant(TimeSpan.TicksPerMillisecond));
             return isNullable
-                ? Expression.Condition(memberHasValue, Expression.Equal(memberTicksFloored, constantTicksFloored), Expression.Constant(false))
-                : Expression.Equal(memberTicksFloored, constantTicksFloored);
-        }
-        if (isDateOnly)
-        {
-            var memberDayNumber = Expression.Property(memberValue, "DayNumber");
-            var constantDayNumber = Expression.Property(constant, "DayNumber");
-
-            return isNullable
-                ? Expression.Condition(memberHasValue, Expression.Equal(memberDayNumber, constantDayNumber), Expression.Constant(false))
-                : Expression.Equal(memberDayNumber, constantDayNumber);
+                ? Expression.Condition(memberHasValue, Expression.Equal(memberValue, constant), Expression.Constant(false))
+                : Expression.Equal(memberValue, constant);
         }
         return Expression.Not(GetInequalityExpression(memberValue, constant, memberHasValue, isNullable, constantIsNull));
     }
@@ -748,7 +873,7 @@ public static class GetItemsExtension
 
     private static Expression GetStringOperationExpression(string methodName, Expression memberValue, Expression constant, string[]? values)
     {
-        if (values != null && values.Any() || memberValue.Type != typeof(string))
+        if (values is { Length: > 0 } || memberValue.Type != typeof(string))
         {
             return Expression.Constant(false);
         }
@@ -758,7 +883,7 @@ public static class GetItemsExtension
 
     private static Expression GetContainsExpression(Expression memberValue, Expression constant, Expression memberHasValue, string[]? values, Type underlyingType, bool isNullable)
     {
-        var hasValues = values != null && values.Any();
+        var hasValues = values is { Length: > 0 };
         var isString = underlyingType == typeof(string);
 
         if (hasValues)
@@ -778,7 +903,7 @@ public static class GetItemsExtension
 
     private static Expression GetContainsAllExpression(Expression memberValue, Expression constant, Expression memberHasValue, string[]? values, Type underlyingType, bool isNullable)
     {
-        var hasValues = values != null && values.Any();
+        var hasValues = values is { Length: > 0 };
         var isString = underlyingType == typeof(string);
 
         if (hasValues)
@@ -834,10 +959,10 @@ public static class GetItemsExtension
                type == typeof(short) || type == typeof(decimal) ||
                type == typeof(byte) || type == typeof(sbyte) ||
                type == typeof(ushort) || type == typeof(uint) ||
-               type == typeof(ulong) || type == typeof(char) || type == typeof(DateTime);
+               type == typeof(ulong) || type == typeof(char);
     }
 
-    private static object ParseSingleValue(string value, Type type)
+    internal static object? ParseSingleValue(string? value, Type type)
     {
         if (value is null)
         {
@@ -846,19 +971,19 @@ public static class GetItemsExtension
         return type switch
         {
             _ when type == typeof(Guid) => ParseFlexibleGuid(value),
-            _ when type == typeof(float) => Convert.ToSingle(value),
-            _ when type == typeof(double) => Convert.ToDouble(value),
-            _ when type == typeof(short) => Convert.ToInt16(value),
-            _ when type == typeof(int) => Convert.ToInt32(value),
-            _ when type == typeof(long) => Convert.ToInt64(value),
-            _ when type == typeof(bool) => value == "1" ? true : value == "0" ? false : Convert.ToBoolean(value),
-            _ when type == typeof(char) => Convert.ToChar(value),
-            _ when type == typeof(byte) => Convert.ToByte(value),
-            _ when type == typeof(sbyte) => Convert.ToSByte(value),
-            _ when type == typeof(ushort) => Convert.ToUInt16(value),
-            _ when type == typeof(uint) => Convert.ToUInt32(value),
-            _ when type == typeof(decimal) => Convert.ToDecimal(value),
-            _ when type == typeof(ulong) => Convert.ToUInt64(value),
+            _ when type == typeof(float) => float.Parse(value, CultureInfo.InvariantCulture),
+            _ when type == typeof(double) => double.Parse(value, CultureInfo.InvariantCulture),
+            _ when type == typeof(short) => short.Parse(value, CultureInfo.InvariantCulture),
+            _ when type == typeof(int) => int.Parse(value, CultureInfo.InvariantCulture),
+            _ when type == typeof(long) => long.Parse(value, CultureInfo.InvariantCulture),
+            _ when type == typeof(bool) => value == "1" || (value == "0" ? false : bool.Parse(value)),
+            _ when type == typeof(char) => char.Parse(value),
+            _ when type == typeof(byte) => byte.Parse(value, CultureInfo.InvariantCulture),
+            _ when type == typeof(sbyte) => sbyte.Parse(value, CultureInfo.InvariantCulture),
+            _ when type == typeof(ushort) => ushort.Parse(value, CultureInfo.InvariantCulture),
+            _ when type == typeof(uint) => uint.Parse(value, CultureInfo.InvariantCulture),
+            _ when type == typeof(decimal) => decimal.Parse(value, CultureInfo.InvariantCulture),
+            _ when type == typeof(ulong) => ulong.Parse(value, CultureInfo.InvariantCulture),
             _ when type == typeof(DateTime) => DateTime.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal),
             _ when type == typeof(DateOnly) => DateOnly.FromDateTime(DateTime.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal)),
             _ when type.IsEnum => Enum.Parse(type, value),

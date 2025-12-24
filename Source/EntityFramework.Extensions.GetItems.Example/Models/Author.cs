@@ -1,4 +1,7 @@
-namespace FilteringTest.Models;
+using System;
+using System.Collections.Generic;
+
+namespace EntityFramework.Extensions.GetItems.Example.Models;
 
 public enum Gender
 {
@@ -15,3 +18,4 @@ public class Author
     public Gender Gender { get; set; }
     public ICollection<Book> Books { get; set; } = new List<Book>();
 }
+

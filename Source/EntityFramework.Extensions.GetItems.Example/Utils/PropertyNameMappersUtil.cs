@@ -1,7 +1,8 @@
-namespace FilteringTest.Utils;
+namespace EntityFramework.Extensions.GetItems.Example.Utils;
 
-using FilteringTest.Controllers;
-using FilteringTest.Models;
+using System;
+using EntityFramework.Extensions.GetItems.Example.Controllers;
+using EntityFramework.Extensions.GetItems.Example.Models;
 
 public static class PropertyNameMappersUtil
 {
@@ -30,3 +31,4 @@ public static class PropertyNameMappersUtil
         };
     }
 }
+
