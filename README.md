@@ -14,6 +14,15 @@ dotnet add package PK.EntityFramework.Extensions.GetItems
 // Define your filterable properties
 public enum BookPropertyNames { Name, PublishedOn, AuthorName }
 
+// Map enum values to property paths
+static string[] PropertyNameMapper(BookPropertyNames field) => field switch
+{
+    BookPropertyNames.Name => [nameof(Book.Name)],
+    BookPropertyNames.PublishedOn => [nameof(Book.PublishedOn)],
+    BookPropertyNames.AuthorName => [nameof(Book.Author), nameof(Author.Name)],
+    _ => throw new ArgumentOutOfRangeException()
+};
+
 // Create a request
 var request = new BaseGetItemsRequest<BookPropertyNames, Guid>
 {
