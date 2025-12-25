@@ -2,89 +2,92 @@ name: CI/CD
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [main]
+    tags: ["v*"]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
-  DOTNET_VERSION: '8.0.x'
-  PROJECT_PATH: 'Source/EntityFramework.Extensions.GetItems/EntityFramework.Extensions.GetItems.csproj'
-  
+  DOTNET_VERSION: "8.0.x"
+  PROJECT_PATH: "Source/EntityFramework.Extensions.GetItems/EntityFramework.Extensions.GetItems.csproj"
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Full history for versioning
-      
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-        
-    - name: Restore dependencies
-      run: dotnet restore
-      
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
-      
-    - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for versioning
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal
 
   publish:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-    
+    permissions:
+      contents: write
+      packages: write
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-      
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Determine version
-      id: version
-      run: |
-        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-          # Release version from tag (e.g., v1.2.3 -> 1.2.3)
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
-        else
-          # Pre-release version for main branch commits
-          # Format: 1.0.0-preview.{run_number}
-          BASE_VERSION=$(grep -oP '(?<=<Version>)[^<]+' ${{ env.PROJECT_PATH }} | head -1)
-          VERSION="${BASE_VERSION}-preview.${{ github.run_number }}"
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
-        fi
-        echo "Determined version: $VERSION"
-        
-    - name: Restore dependencies
-      run: dotnet restore
-      
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
-      
-    - name: Pack
-      run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ./nupkg /p:Version=${{ steps.version.outputs.VERSION }}
-      
-    - name: Publish to NuGet
-      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Create GitHub Release
-      if: startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: ./nupkg/*.nupkg
-        generate_release_notes: true
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Release version from tag (e.g., v1.2.3 -> 1.2.3)
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+          else
+            # Pre-release version for main branch commits
+            # Format: 1.0.0-preview.{run_number}
+            BASE_VERSION=$(grep -oP '(?<=<Version>)[^<]+' ${{ env.PROJECT_PATH }} | head -1)
+            VERSION="${BASE_VERSION}-preview.${{ github.run_number }}"
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+          fi
+          echo "Determined version: $VERSION"
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Pack
+        run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ./nupkg /p:Version=${{ steps.version.outputs.VERSION }}
+
+      - name: Publish to NuGet
+        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./nupkg/*.nupkg
+          generate_release_notes: true

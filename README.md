@@ -1,11 +1,11 @@
-# EntityFramework.Extensions.GetItems
+# PK.EntityFramework.Extensions.GetItems
 
 A simple, expressive way to paginate, filter, and sort data in Entity Framework. Works great with APIs and directly in your business logic.
 
 ## Installation
 
 ```bash
-dotnet add package EntityFramework.Extensions.GetItems
+dotnet add package PK.EntityFramework.Extensions.GetItems
 ```
 
 ## Quick Start
@@ -54,28 +54,28 @@ var result = await dbContext.Books.GetItems(request, b => b.Id, PropertyNameMapp
 ## Pagination Modes
 
 ```csharp
-var options = new GetItemsOptions 
-{ 
+var options = new GetItemsOptions
+{
     PaginationHandling = PaginationHandlingEnum.Expensive // default
 };
 ```
 
-| Mode | Description | Returns |
-|------|-------------|---------|
-| `Expensive` | Runs parallel COUNT query | `TotalCount`, `TotalPages` |
-| `Cheap` | Fetches N+1 items to check next page | `HasNextPage` |
-| `None` | No pagination metadata | Items only |
+| Mode        | Description                          | Returns                    |
+| ----------- | ------------------------------------ | -------------------------- |
+| `Expensive` | Runs parallel COUNT query            | `TotalCount`, `TotalPages` |
+| `Cheap`     | Fetches N+1 items to check next page | `HasNextPage`              |
+| `None`      | No pagination metadata               | Items only                 |
 
 > **Note:** `Expensive` mode requires `IDbContextFactory`. Use `Cheap` or `None` with direct `IQueryable` extensions.
 
 ## Filter Operators
 
-| Operator | Description |
-|----------|-------------|
-| `Eq`, `Neq` | Equal / Not equal |
-| `Lt`, `Lte`, `Gt`, `Gte` | Comparison operators |
-| `StartsWith`, `EndsWith`, `Contains` | String matching |
-| `ContainsAll`, `NotContains` | Collection operations |
+| Operator                                   | Description             |
+| ------------------------------------------ | ----------------------- |
+| `Eq`, `Neq`                                | Equal / Not equal       |
+| `Lt`, `Lte`, `Gt`, `Gte`                   | Comparison operators    |
+| `StartsWith`, `EndsWith`, `Contains`       | String matching         |
+| `ContainsAll`, `NotContains`               | Collection operations   |
 | `Flag`, `AnyFlag`, `NotFlag`, `NotAnyFlag` | Bitwise flag operations |
 
 ## Request Options
@@ -87,15 +87,15 @@ var request = new BaseGetItemsRequest<PropertyEnum, Guid>
     Page = 1,
     Count = 25,
     Skip = 0,              // Additional skip offset
-    
+
     // ID filtering
     Ids = [guid1, guid2],       // Include only these IDs
     ExceptIds = [guid3],        // Exclude these IDs
-    
+
     // Filters and sorting
     Filters = [...],
     Sort = [...],
-    
+
     // Optimization: pass cached total to skip COUNT query
     TotalCount = cachedTotal
 };

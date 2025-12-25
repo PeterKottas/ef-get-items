@@ -5,20 +5,22 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>EntityFramework.Extensions.GetItems</RootNamespace>
-    
+
     <!-- NuGet Package Metadata -->
-    <PackageId>EntityFramework.Extensions.GetItems</PackageId>
+    <PackageId>PK.EntityFramework.Extensions.GetItems</PackageId>
     <Version>1.0.1</Version>
     <Authors>Peter Kottas</Authors>
     <Company>Peter Kottas</Company>
-    <Description>Easy pagination, filtering, and sorting for Entity Framework Core. Works seamlessly in APIs and business logic with support for dynamic queries, multiple filter operators, and flexible pagination strategies.</Description>
+    <Description>Easy pagination, filtering, and sorting for Entity Framework Core. Works seamlessly
+      in APIs and business logic with support for dynamic queries, multiple filter operators, and
+      flexible pagination strategies.</Description>
     <PackageTags>entityframework;ef-core;pagination;filtering;sorting;linq;dotnet;csharp</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/PeterKottas/ef-get-items</PackageProjectUrl>
     <RepositoryUrl>https://github.com/PeterKottas/ef-get-items</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    
+
     <!-- Build Configuration -->
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -38,4 +40,3 @@
   </ItemGroup>
 
 </Project>
-
