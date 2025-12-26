@@ -15,11 +15,13 @@ public class IntegrationTests
             Count = 2
         };
         
+        var options = new GetItemsOptions { PaginationHandling = PaginationHandlingEnum.Expensive };
         var result = await factory.GetItems(
             ctx => ctx.Entities, 
             request, 
             e => e.Id, 
-            TestHelpers.PropertyNameToString);
+            TestHelpers.PropertyNameToString,
+            options);
         
         Assert.Equal(2, result.Items.Length);
         Assert.Equal(3, result.TotalCount); // 3 active users
