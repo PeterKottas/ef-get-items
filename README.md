@@ -65,14 +65,14 @@ var result = await dbContext.Books.GetItems(request, b => b.Id, PropertyNameMapp
 ```csharp
 var options = new GetItemsOptions
 {
-    PaginationHandling = PaginationHandlingEnum.Expensive // default
+    PaginationHandling = PaginationHandlingEnum.Cheap // default
 };
 ```
 
 | Mode        | Description                          | Returns                    |
 | ----------- | ------------------------------------ | -------------------------- |
+| `Cheap`     | Fetches N+1 items to check next page | `HasNextPage` (default)    |
 | `Expensive` | Runs parallel COUNT query            | `TotalCount`, `TotalPages` |
-| `Cheap`     | Fetches N+1 items to check next page | `HasNextPage`              |
 | `None`      | No pagination metadata               | Items only                 |
 
 > **Note:** `Expensive` mode requires `IDbContextFactory`. Use `Cheap` or `None` with direct `IQueryable` extensions.

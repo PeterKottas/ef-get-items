@@ -71,9 +71,9 @@ public class PaginatedData<TEntity>
 public class GetItemsOptions
 {
     /// <summary>
-    /// Specifies how pagination metadata should be calculated. Default is <see cref="PaginationHandlingEnum.Expensive"/>.
+    /// Specifies how pagination metadata should be calculated. Default is <see cref="PaginationHandlingEnum.Cheap"/>.
     /// </summary>
-    public PaginationHandlingEnum PaginationHandling { get; set; } = PaginationHandlingEnum.Expensive;
+    public PaginationHandlingEnum PaginationHandling { get; set; } = PaginationHandlingEnum.Cheap;
     
     /// <summary>
     /// Custom expression transformations for properties marked with <see cref="LinqExpressionAttribute"/>.
