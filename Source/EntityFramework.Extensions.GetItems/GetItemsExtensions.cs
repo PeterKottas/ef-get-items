@@ -168,6 +168,147 @@ public static class GetItemsExtension
     }
 
     /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support using an <see cref="IDbContextFactory{TContext}"/>.
+    /// This overload accepts any object implementing <see cref="IGetItemsRequest{TPropertyNameEnum, TId}"/>.
+    /// </summary>
+    /// <typeparam name="TDBContext">The DbContext type.</typeparam>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="contextFactory">The DbContext factory for creating database contexts.</param>
+    /// <param name="query">A function that returns the base queryable from a DbContext.</param>
+    /// <param name="request">The request implementing the GetItems interface.</param>
+    /// <param name="options">Optional configuration options. Uses defaults if not specified.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    public static async Task<PaginatedData<TEntity>> GetItems<TDBContext, TEntity, TPropertyNameEnum, TId>(
+               this IDbContextFactory<TDBContext> contextFactory,
+               Func<TDBContext, IQueryable<TEntity>> query,
+               IGetItemsRequest<TPropertyNameEnum, TId> request,
+               GetItemsOptions? options = null
+        ) where TPropertyNameEnum : struct, IConvertible where TDBContext : DbContext where TEntity : class
+    {
+        return await contextFactory.GetItems(query, request, null, null, options ?? GetItemsOptions.Default);
+    }
+
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support using an <see cref="IDbContextFactory{TContext}"/>.
+    /// This overload accepts any object implementing <see cref="IGetItemsRequest{TPropertyNameEnum, TId}"/>.
+    /// </summary>
+    /// <typeparam name="TDBContext">The DbContext type.</typeparam>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="contextFactory">The DbContext factory for creating database contexts.</param>
+    /// <param name="query">A function that returns the base queryable from a DbContext.</param>
+    /// <param name="request">The request implementing the GetItems interface.</param>
+    /// <param name="idAccessor">An expression to access the entity's primary key. Required when using Ids or ExceptIds.</param>
+    /// <param name="options">Optional configuration options. Uses defaults if not specified.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    public static async Task<PaginatedData<TEntity>> GetItems<TDBContext, TEntity, TPropertyNameEnum, TId>(
+               this IDbContextFactory<TDBContext> contextFactory,
+               Func<TDBContext, IQueryable<TEntity>> query,
+               IGetItemsRequest<TPropertyNameEnum, TId> request,
+               Expression<Func<TEntity, TId>>? idAccessor,
+               GetItemsOptions? options = null
+        ) where TPropertyNameEnum : struct, IConvertible where TDBContext : DbContext where TEntity : class
+    {
+        return await contextFactory.GetItems(query, request, idAccessor, null, options ?? GetItemsOptions.Default);
+    }
+    
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support using an <see cref="IDbContextFactory{TContext}"/>.
+    /// This overload accepts any object implementing <see cref="IGetItemsRequest{TPropertyNameEnum, TId}"/>.
+    /// </summary>
+    /// <typeparam name="TDBContext">The DbContext type.</typeparam>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="contextFactory">The DbContext factory for creating database contexts.</param>
+    /// <param name="query">A function that returns the base queryable from a DbContext.</param>
+    /// <param name="request">The request implementing the GetItems interface.</param>
+    /// <param name="idAccessor">An expression to access the entity's primary key. Required when using Ids or ExceptIds.</param>
+    /// <param name="propertyNameToString">A function that maps property enum values to property path arrays. Required when using Filters or Sort.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    public static async Task<PaginatedData<TEntity>> GetItems<TDBContext, TEntity, TPropertyNameEnum, TId>(
+               this IDbContextFactory<TDBContext> contextFactory,
+               Func<TDBContext, IQueryable<TEntity>> query,
+               IGetItemsRequest<TPropertyNameEnum, TId> request,
+               Expression<Func<TEntity, TId>>? idAccessor,
+               Func<TPropertyNameEnum, string[]>? propertyNameToString
+        ) where TPropertyNameEnum : struct, IConvertible where TDBContext : DbContext where TEntity : class
+    {
+        return await contextFactory.GetItems(query, request, idAccessor, propertyNameToString, null);
+    }
+
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support using an <see cref="IDbContextFactory{TContext}"/>.
+    /// This overload accepts any object implementing <see cref="IGetItemsRequest{TPropertyNameEnum, TId}"/> and provides full control over all parameters.
+    /// </summary>
+    /// <typeparam name="TDBContext">The DbContext type.</typeparam>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="contextFactory">The DbContext factory for creating database contexts.</param>
+    /// <param name="query">A function that returns the base queryable from a DbContext.</param>
+    /// <param name="request">The request implementing the GetItems interface.</param>
+    /// <param name="idAccessor">An expression to access the entity's primary key. Required when using Ids or ExceptIds.</param>
+    /// <param name="propertyNameToString">A function that maps property enum values to property path arrays. Required when using Filters or Sort.</param>
+    /// <param name="options">Configuration options for pagination handling and query debugging.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    /// <exception cref="ArgumentException">Thrown when idAccessor is null but Ids/ExceptIds are used, or when propertyNameToString is null but Filters/Sort are used.</exception>
+    public static async Task<PaginatedData<TEntity>> GetItems<TDBContext, TEntity, TPropertyNameEnum, TId>(
+               this IDbContextFactory<TDBContext> contextFactory,
+               Func<TDBContext, IQueryable<TEntity>> query,
+               IGetItemsRequest<TPropertyNameEnum, TId> request,
+               Expression<Func<TEntity, TId>>? idAccessor,
+               Func<TPropertyNameEnum, string[]>? propertyNameToString,
+               GetItemsOptions? options
+        ) where TPropertyNameEnum : struct, IConvertible where TDBContext : DbContext where TEntity : class
+    {
+        options ??= GetItemsOptions.Default;
+        
+        var filteredQuery = BuildFilteredQuery(request, idAccessor, propertyNameToString, options);
+
+        var count = request.Count ?? PaginationConstants.DefaultCount;
+
+        switch (options.PaginationHandling)
+        {
+            case PaginationHandlingEnum.Expensive:
+            {
+                await using var totalContext = await contextFactory.CreateDbContextAsync();
+                await using var itemsContext = await contextFactory.CreateDbContextAsync();
+                
+                var itemsQuery = filteredQuery(query(itemsContext));
+                var debugView = GetQueryDebugView(itemsQuery, options);
+                
+                var totalCountTask = !request.TotalCount.HasValue
+                    ? filteredQuery(query(totalContext)).LongCountAsync()
+                    : Task.FromResult(request.TotalCount.Value);
+
+                var totalItemsTask = itemsQuery.Paginate(request, count);
+
+                await Task.WhenAll(totalCountTask, totalItemsTask);
+                
+                return new PaginatedData<TEntity>(
+                    totalItemsTask.Result,
+                    request.Page ?? PaginationConstants.DefaultPage,
+                    count,
+                    totalCount: totalCountTask.Result,
+                    queryDebugView: debugView
+                );
+            }
+            
+            case PaginationHandlingEnum.Cheap:
+            case PaginationHandlingEnum.None:
+            default:
+            {
+                await using var itemsContext = await contextFactory.CreateDbContextAsync();
+                return await ExecuteNonExpensiveQuery(filteredQuery(query(itemsContext)), request, options, count);
+            }
+        }
+    }
+
+    /// <summary>
     /// Queries entities with pagination, filtering, and sorting support directly on an <see cref="IQueryable{T}"/>.
     /// </summary>
     /// <remarks>
@@ -259,8 +400,102 @@ public static class GetItemsExtension
         return ExecuteNonExpensiveQuery(filteredQuery(query), request, options, count);
     }
 
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support directly on an <see cref="IQueryable{T}"/>.
+    /// This overload accepts any object implementing <see cref="IGetItemsRequest{TPropertyNameEnum, TId}"/>.
+    /// </summary>
+    /// <remarks>
+    /// This overload does not support <see cref="PaginationHandlingEnum.Expensive"/> pagination mode.
+    /// Use the <see cref="IDbContextFactory{TContext}"/> overloads for expensive pagination.
+    /// </remarks>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="query">The base queryable to apply filters, sorting, and pagination to.</param>
+    /// <param name="request">The request implementing the GetItems interface.</param>
+    /// <param name="options">Optional configuration options. Uses defaults if not specified. Cannot use Expensive pagination.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <see cref="PaginationHandlingEnum.Expensive"/> is used.</exception>
+    public static Task<PaginatedData<TEntity>> GetItems<TEntity, TPropertyNameEnum, TId>(
+               this IQueryable<TEntity> query,
+               IGetItemsRequest<TPropertyNameEnum, TId> request,
+               GetItemsOptions? options = null
+        ) where TPropertyNameEnum : struct, IConvertible where TEntity : class
+    {
+        return query.GetItems(request, null, null, options);
+    }
+
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support directly on an <see cref="IQueryable{T}"/>.
+    /// This overload accepts any object implementing <see cref="IGetItemsRequest{TPropertyNameEnum, TId}"/>.
+    /// </summary>
+    /// <remarks>
+    /// This overload does not support <see cref="PaginationHandlingEnum.Expensive"/> pagination mode.
+    /// Use the <see cref="IDbContextFactory{TContext}"/> overloads for expensive pagination.
+    /// </remarks>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="query">The base queryable to apply filters, sorting, and pagination to.</param>
+    /// <param name="request">The request implementing the GetItems interface.</param>
+    /// <param name="idAccessor">An expression to access the entity's primary key. Required when using Ids or ExceptIds.</param>
+    /// <param name="options">Optional configuration options. Uses defaults if not specified. Cannot use Expensive pagination.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <see cref="PaginationHandlingEnum.Expensive"/> is used.</exception>
+    public static Task<PaginatedData<TEntity>> GetItems<TEntity, TPropertyNameEnum, TId>(
+               this IQueryable<TEntity> query,
+               IGetItemsRequest<TPropertyNameEnum, TId> request,
+               Expression<Func<TEntity, TId>>? idAccessor,
+               GetItemsOptions? options = null
+        ) where TPropertyNameEnum : struct, IConvertible where TEntity : class
+    {
+        return query.GetItems(request, idAccessor, null, options);
+    }
+
+    /// <summary>
+    /// Queries entities with pagination, filtering, and sorting support directly on an <see cref="IQueryable{T}"/>.
+    /// This overload accepts any object implementing <see cref="IGetItemsRequest{TPropertyNameEnum, TId}"/> and provides full control over all parameters except pagination mode.
+    /// </summary>
+    /// <remarks>
+    /// This overload does not support <see cref="PaginationHandlingEnum.Expensive"/> pagination mode because
+    /// it requires parallel queries which need separate DbContext instances from an <see cref="IDbContextFactory{TContext}"/>.
+    /// </remarks>
+    /// <typeparam name="TEntity">The entity type to query.</typeparam>
+    /// <typeparam name="TPropertyNameEnum">An enum type representing filterable/sortable property names.</typeparam>
+    /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+    /// <param name="query">The base queryable to apply filters, sorting, and pagination to.</param>
+    /// <param name="request">The request implementing the GetItems interface.</param>
+    /// <param name="idAccessor">An expression to access the entity's primary key. Required when using Ids or ExceptIds.</param>
+    /// <param name="propertyNameToString">A function that maps property enum values to property path arrays. Required when using Filters or Sort.</param>
+    /// <param name="options">Optional configuration options. Cannot use <see cref="PaginationHandlingEnum.Expensive"/>.</param>
+    /// <returns>A <see cref="PaginatedData{TEntity}"/> containing the query results and pagination metadata.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <see cref="PaginationHandlingEnum.Expensive"/> is used.</exception>
+    /// <exception cref="ArgumentException">Thrown when idAccessor is null but Ids/ExceptIds are used, or when propertyNameToString is null but Filters/Sort are used.</exception>
+    public static Task<PaginatedData<TEntity>> GetItems<TEntity, TPropertyNameEnum, TId>(
+               this IQueryable<TEntity> query,
+               IGetItemsRequest<TPropertyNameEnum, TId> request,
+               Expression<Func<TEntity, TId>>? idAccessor,
+               Func<TPropertyNameEnum, string[]>? propertyNameToString,
+               GetItemsOptions? options = null
+        ) where TPropertyNameEnum : struct, IConvertible where TEntity : class
+    {
+        options ??= GetItemsOptions.Default;
+        
+        if (options.PaginationHandling == PaginationHandlingEnum.Expensive)
+        {
+            throw new InvalidOperationException(
+                "Expensive pagination requires IDbContextFactory to run parallel queries. " +
+                "Use IDbContextFactory.GetItems() or switch to Cheap/None pagination.");
+        }
+
+        var filteredQuery = BuildFilteredQuery(request, idAccessor, propertyNameToString, options);
+        var count = request.Count ?? PaginationConstants.DefaultCount;
+        
+        return ExecuteNonExpensiveQuery(filteredQuery(query), request, options, count);
+    }
+
     private static Func<IQueryable<TEntity>, IQueryable<TEntity>> BuildFilteredQuery<TEntity, TPropertyNameEnum, TId>(
-        BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+        IGetItemsRequest<TPropertyNameEnum, TId> request,
         Expression<Func<TEntity, TId>>? idAccessor,
         Func<TPropertyNameEnum, string[]>? propertyNameToString,
         GetItemsOptions options
@@ -298,7 +533,7 @@ public static class GetItemsExtension
 
     private static async Task<PaginatedData<TEntity>> ExecuteNonExpensiveQuery<TEntity, TPropertyNameEnum, TId>(
         IQueryable<TEntity> query,
-        BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+        IGetItemsRequest<TPropertyNameEnum, TId> request,
         GetItemsOptions options,
         int count
     ) where TPropertyNameEnum : struct, IConvertible where TEntity : class
@@ -343,7 +578,7 @@ public static class GetItemsExtension
 
     internal static Task<TEntity[]> Paginate<TEntity, TPropertyNameEnum, TId>(
         this IQueryable<TEntity> query,
-        BaseGetItemsRequest<TPropertyNameEnum, TId> request,
+        IGetItemsRequest<TPropertyNameEnum, TId> request,
         int take) where TPropertyNameEnum : struct, IConvertible
     {
         var page = request.Page ?? PaginationConstants.DefaultPage;

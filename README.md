@@ -113,6 +113,32 @@ var request = new BaseGetItemsRequest<PropertyEnum, Guid>
 };
 ```
 
+### Using with Custom Base Classes
+
+If you need to inherit from a different base class, implement `IGetItemsRequest<TPropertyNameEnum, TId>`:
+
+```csharp
+public class MyCustomRequest : MyBaseClass, IGetItemsRequest<BookPropertyNames, Guid>
+{
+    public Guid[]? Ids { get; set; }
+    public Guid[]? ExceptIds { get; set; }
+    public int? Page { get; set; }
+    public int? Count { get; set; }
+    public int? Skip { get; set; }
+    public GetItemsFilter<BookPropertyNames>[]? Filters { get; set; }
+    public GetItemsSorter<BookPropertyNames>[]? Sort { get; set; }
+    public long? TotalCount { get; set; }
+}
+
+// Works the same way
+var result = await dbContextFactory.GetItems(
+    ctx => ctx.Books,
+    myCustomRequest,
+    b => b.Id,
+    PropertyNameMapper
+);
+```
+
 ## Property Mapping
 
 Map enum values to property paths, including nested properties:

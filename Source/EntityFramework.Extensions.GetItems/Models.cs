@@ -138,11 +138,61 @@ public class GetItemsOptions
 }
 
 /// <summary>
+/// Interface for GetItems queries containing pagination, filtering, and sorting parameters.
+/// Implement this interface to use GetItems functionality without inheriting from <see cref="BaseGetItemsRequest{TPropertyNameEnum, TId}"/>.
+/// </summary>
+/// <typeparam name="TPropertyNameEnum">An enum type representing the filterable/sortable property names.</typeparam>
+/// <typeparam name="TId">The type of the entity's primary key.</typeparam>
+public interface IGetItemsRequest<TPropertyNameEnum, TId>
+    where TPropertyNameEnum : struct, IConvertible
+{
+    /// <summary>
+    /// Filter to only include entities with these IDs.
+    /// </summary>
+    TId[]? Ids { get; }
+    
+    /// <summary>
+    /// Exclude entities with these IDs from the results.
+    /// </summary>
+    TId[]? ExceptIds { get; }
+    
+    /// <summary>
+    /// The page number to retrieve (1-based). Default is 1.
+    /// </summary>
+    int? Page { get; }
+    
+    /// <summary>
+    /// The number of items per page. Default is 25.
+    /// </summary>
+    int? Count { get; }
+    
+    /// <summary>
+    /// Additional items to skip after page calculation. Default is 0.
+    /// </summary>
+    int? Skip { get; }
+    
+    /// <summary>
+    /// Array of filters to apply to the query.
+    /// </summary>
+    GetItemsFilter<TPropertyNameEnum>[]? Filters { get; }
+    
+    /// <summary>
+    /// Array of sorters to apply to the query.
+    /// </summary>
+    GetItemsSorter<TPropertyNameEnum>[]? Sort { get; }
+    
+    /// <summary>
+    /// Optional pre-computed total count. If provided, skips the count query in <see cref="PaginationHandlingEnum.Expensive"/> mode.
+    /// </summary>
+    long? TotalCount { get; }
+}
+
+/// <summary>
 /// Base request class for GetItems queries containing pagination, filtering, and sorting parameters.
 /// </summary>
 /// <typeparam name="TPropertyNameEnum">An enum type representing the filterable/sortable property names.</typeparam>
 /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
-public partial class BaseGetItemsRequest<TPropertyNameEnum, TId>
+public partial class BaseGetItemsRequest<TPropertyNameEnum, TId> : IGetItemsRequest<TPropertyNameEnum, TId>
     where TPropertyNameEnum : struct, IConvertible
 {
     /// <summary>
