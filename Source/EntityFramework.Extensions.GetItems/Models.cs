@@ -142,7 +142,7 @@ public class GetItemsOptions
 /// </summary>
 /// <typeparam name="TPropertyNameEnum">An enum type representing the filterable/sortable property names.</typeparam>
 /// <typeparam name="TId">The type of the entity's primary key.</typeparam>
-public class BaseGetItemsRequest<TPropertyNameEnum, TId>
+public partial class BaseGetItemsRequest<TPropertyNameEnum, TId>
     where TPropertyNameEnum : struct, IConvertible
 {
     /// <summary>
