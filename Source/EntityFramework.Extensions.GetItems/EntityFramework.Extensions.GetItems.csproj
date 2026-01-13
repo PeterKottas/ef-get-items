@@ -25,10 +25,26 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
+
+    <!-- Debug and Symbol Configuration -->
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <EmbedAllSources>true</EmbedAllSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- Deterministic builds for reproducibility -->
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
+
+    <!-- SourceLink Configuration -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.22" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
