@@ -80,15 +80,15 @@ var options = new GetItemsOptions
 
 ## Filter Operators
 
-| Operator                                   | Description                                            |
-| ------------------------------------------ | ------------------------------------------------------ |
-| `Eq`, `Neq`                                | Equal / Not equal                                      |
-| `Lt`, `Lte`, `Gt`, `Gte`                   | Comparison operators                                   |
-| `StartsWith`, `EndsWith`, `Contains`       | String matching (case-sensitive)                       |
-| `IStartsWith`, `IEndsWith`, `IContains`    | String matching (case-insensitive, uses LIKE/ILIKE)    |
-| `NotContains`, `INotContains`              | Does not contain (case-sensitive / case-insensitive)   |
-| `ContainsAll`, `NotContainsAll`            | Collection operations                                  |
-| `Flag`, `AnyFlag`, `NotFlag`, `NotAnyFlag` | Bitwise flag operations                                |
+| Operator                                   | Description                                          |
+| ------------------------------------------ | ---------------------------------------------------- |
+| `Eq`, `Neq`                                | Equal / Not equal                                    |
+| `Lt`, `Lte`, `Gt`, `Gte`                   | Comparison operators                                 |
+| `StartsWith`, `EndsWith`, `Contains`       | String matching (case-sensitive)                     |
+| `IStartsWith`, `IEndsWith`, `IContains`    | String matching (case-insensitive, uses LIKE/ILIKE)  |
+| `NotContains`, `INotContains`              | Does not contain (case-sensitive / case-insensitive) |
+| `ContainsAll`, `NotContainsAll`            | Collection operations                                |
+| `Flag`, `AnyFlag`, `NotFlag`, `NotAnyFlag` | Bitwise flag operations                              |
 
 ## Request Options
 
@@ -200,11 +200,11 @@ var result = await factory.GetItems(ctx => ctx.Books, request, b => b.Id, mapper
 
 The `DbProvider` option controls which SQL function is used:
 
-| Provider     | Function | Behavior                                      |
-| ------------ | -------- | --------------------------------------------- |
-| `PostgreSql` | `ILIKE`  | Explicitly case-insensitive (default)         |
-| `SqlServer`  | `LIKE`   | Case-insensitive (depends on collation)       |
-| `InMemory`   | `LIKE`   | For testing purposes                          |
+| Provider     | Function | Behavior                                |
+| ------------ | -------- | --------------------------------------- |
+| `PostgreSql` | `ILIKE`  | Explicitly case-insensitive (default)   |
+| `SqlServer`  | `LIKE`   | Case-insensitive (depends on collation) |
+| `InMemory`   | `LIKE`   | For testing purposes                    |
 
 ```csharp
 // Configure DbProvider globally if not using PostgreSQL
