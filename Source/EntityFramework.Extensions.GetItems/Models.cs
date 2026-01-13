@@ -70,6 +70,9 @@ public class PaginatedData<TEntity>
 /// </summary>
 public class GetItemsOptions
 {
+    private static GetItemsOptions? _globalDefault;
+    private static readonly object _lock = new();
+    
     /// <summary>
     /// Specifies how pagination metadata should be calculated. Default is <see cref="PaginationHandlingEnum.Cheap"/>.
     /// </summary>
@@ -88,9 +91,50 @@ public class GetItemsOptions
     public bool DebugQuery { get; set; }
     
     /// <summary>
-    /// Gets a new instance of <see cref="GetItemsOptions"/> with default values.
+    /// Specifies the database provider for provider-specific query optimizations.
+    /// Used by case-insensitive operators (IStartsWith, IEndsWith, IContains, INotContains).
+    /// Default is <see cref="DbProviderEnum.PostgreSql"/>.
     /// </summary>
-    public static GetItemsOptions Default => new();
+    public DbProviderEnum DbProvider { get; set; } = DbProviderEnum.PostgreSql;
+    
+    /// <summary>
+    /// Gets the default instance of <see cref="GetItemsOptions"/>.
+    /// Returns the globally configured default if <see cref="ConfigureDefault"/> was called, otherwise a new instance.
+    /// </summary>
+    public static GetItemsOptions Default => _globalDefault ?? new GetItemsOptions();
+    
+    /// <summary>
+    /// Configures the global default options. Call this once at application startup to set defaults for all GetItems calls.
+    /// </summary>
+    /// <param name="configure">An action to configure the default options.</param>
+    /// <example>
+    /// <code>
+    /// GetItemsOptions.ConfigureDefault(options =>
+    /// {
+    ///     options.DbProvider = DbProviderEnum.SqlServer;
+    ///     options.PaginationHandling = PaginationHandlingEnum.Cheap;
+    /// });
+    /// </code>
+    /// </example>
+    public static void ConfigureDefault(Action<GetItemsOptions> configure)
+    {
+        lock (_lock)
+        {
+            _globalDefault = new GetItemsOptions();
+            configure(_globalDefault);
+        }
+    }
+    
+    /// <summary>
+    /// Resets the global default options to null, causing <see cref="Default"/> to return a new instance.
+    /// </summary>
+    public static void ResetDefault()
+    {
+        lock (_lock)
+        {
+            _globalDefault = null;
+        }
+    }
 }
 
 /// <summary>

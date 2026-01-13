@@ -125,6 +125,7 @@ public static class GetItemsExtension
         ) where TPropertyNameEnum : struct, IConvertible where TDBContext : DbContext where TEntity : class
     {
         options ??= GetItemsOptions.Default;
+        
         var filteredQuery = BuildFilteredQuery(request, idAccessor, propertyNameToString, options);
 
         var count = request.Count ?? PaginationConstants.DefaultCount;
@@ -477,7 +478,7 @@ public static class GetItemsExtension
         if (propertyNamesByArrayAccessor.Length == 1)
         {
             var member = propertyNamesByArrayAccessor.First();
-            var body = GetBodyExpression(filter, member, GetConstantExpression(filter, member));
+            var body = GetBodyExpression(filter, member, GetConstantExpression(filter, member), options);
 
             return filtersExpression is not null
                 ? LogicExpression(body, filtersExpression, filter.FiltersLogic)
@@ -487,7 +488,7 @@ public static class GetItemsExtension
         {
             var hasValues = filter.Values is not null && filter.Values.Length != 0;
             var member = propertyNamesByArrayAccessor.Last();
-            var body = GetBodyExpression(filter, member, GetConstantExpression(filter, member));
+            var body = GetBodyExpression(filter, member, GetConstantExpression(filter, member), options);
             var arrayAccessor = propertyNamesByArrayAccessor.First();
             var arrayAccessorType = arrayAccessor.Type;
             var elementType = arrayAccessorType.GetInterfaces()
@@ -665,7 +666,11 @@ public static class GetItemsExtension
         return propertyNameToString?.Invoke(field) ?? [field.ToString()!];
     }
 
-    private static Expression GetBodyExpression<TPropertyNameEnum>(GetItemsFilter<TPropertyNameEnum> filter, Expression member, Expression constant)
+    private static Expression GetBodyExpression<TPropertyNameEnum>(
+        GetItemsFilter<TPropertyNameEnum> filter, 
+        Expression member, 
+        Expression constant,
+        GetItemsOptions options)
     where TPropertyNameEnum : struct, IConvertible
     {
         var isNullable = IsNullable(member.Type, out var underlyingType);
@@ -692,6 +697,10 @@ public static class GetItemsExtension
             FilterOperatorEnum.EndsWith => GetStringOperationExpression("EndsWith", memberValue, constant, filter.Values),
             FilterOperatorEnum.Contains => GetContainsExpression(memberValue, constant, memberHasValue, filter.Values, underlyingType, isNullable),
             FilterOperatorEnum.NotContains => Expression.Not(GetContainsExpression(memberValue, constant, memberHasValue, filter.Values, underlyingType, isNullable)),
+            FilterOperatorEnum.IStartsWith => GetCaseInsensitiveStringExpression("StartsWith", memberValue, filter.Value, filter.Values, options.DbProvider),
+            FilterOperatorEnum.IEndsWith => GetCaseInsensitiveStringExpression("EndsWith", memberValue, filter.Value, filter.Values, options.DbProvider),
+            FilterOperatorEnum.IContains => GetCaseInsensitiveStringExpression("Contains", memberValue, filter.Value, filter.Values, options.DbProvider),
+            FilterOperatorEnum.INotContains => Expression.Not(GetCaseInsensitiveStringExpression("Contains", memberValue, filter.Value, filter.Values, options.DbProvider)),
             FilterOperatorEnum.ContainsAll => GetContainsAllExpression(memberValue, constant, memberHasValue, filter.Values, underlyingType, isNullable),
             FilterOperatorEnum.NotContainsAll => Expression.Not(GetContainsAllExpression(memberValue, constant, memberHasValue, filter.Values, underlyingType, isNullable)),
             FilterOperatorEnum.Flag => GetFlagExpression(memberValue, constant, memberHasValue, isNullable, isEnum || isNumeric, isBoolean),
@@ -871,7 +880,48 @@ public static class GetItemsExtension
             : comparisonFunc(memberValue, constant);
     }
 
-    private static Expression GetStringOperationExpression(string methodName, Expression memberValue, Expression constant, string[]? values)
+    // Cache the MethodInfo for EF.Functions.Like
+    private static readonly MethodInfo EfLikeMethod = typeof(DbFunctionsExtensions)
+        .GetMethod(nameof(DbFunctionsExtensions.Like), new[] { typeof(DbFunctions), typeof(string), typeof(string) })!;
+    
+    // ILike is in Npgsql.EntityFrameworkCore.PostgreSQL package (NpgsqlDbFunctionsExtensions class)
+    // We use lazy initialization to find it at runtime if the Npgsql assembly is loaded
+    private static MethodInfo? _efILikeMethod;
+    
+    private static MethodInfo? GetEfILikeMethod()
+    {
+        if (_efILikeMethod != null)
+            return _efILikeMethod;
+        
+        // Try to find NpgsqlDbFunctionsExtensions from loaded assemblies
+        var npgsqlType = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => a.GetName().Name == "Npgsql.EntityFrameworkCore.PostgreSQL")
+            .SelectMany(a => 
+            {
+                try { return a.GetTypes(); }
+                catch { return Array.Empty<Type>(); }
+            })
+            .FirstOrDefault(t => t.Name == "NpgsqlDbFunctionsExtensions");
+        
+        if (npgsqlType != null)
+        {
+            // ILike signature: ILike(DbFunctions, string matchExpression, string pattern)
+            _efILikeMethod = npgsqlType.GetMethods()
+                .FirstOrDefault(m => m.Name == "ILike" 
+                    && m.GetParameters().Length == 3
+                    && m.GetParameters()[0].ParameterType == typeof(DbFunctions)
+                    && m.GetParameters()[1].ParameterType == typeof(string)
+                    && m.GetParameters()[2].ParameterType == typeof(string));
+        }
+        
+        return _efILikeMethod;
+    }
+    
+    private static Expression GetStringOperationExpression(
+        string methodName, 
+        Expression memberValue, 
+        Expression constant,
+        string[]? values)
     {
         if (values is { Length: > 0 } || memberValue.Type != typeof(string))
         {
@@ -880,8 +930,76 @@ public static class GetItemsExtension
 
         return Expression.Call(memberValue, methodName, Type.EmptyTypes, constant);
     }
+    
+    private static Expression GetCaseInsensitiveStringExpression(
+        string operationType,
+        Expression memberValue,
+        string? value,
+        string[]? values,
+        DbProviderEnum dbProvider)
+    {
+        if (values is { Length: > 0 } || memberValue.Type != typeof(string) || value == null)
+        {
+            return Expression.Constant(false);
+        }
 
-    private static Expression GetContainsExpression(Expression memberValue, Expression constant, Expression memberHasValue, string[]? values, Type underlyingType, bool isNullable)
+        return GetLikeExpression(memberValue, value, operationType, dbProvider);
+    }
+    
+    private static Expression GetLikeExpression(Expression memberValue, string value, string operationType, DbProviderEnum dbProvider)
+    {
+        // Escape LIKE wildcards in the value
+        var escapedValue = EscapeLikePattern(value);
+        
+        // Build the pattern based on operation type
+        var pattern = operationType switch
+        {
+            "StartsWith" => $"{escapedValue}%",
+            "EndsWith" => $"%{escapedValue}",
+            "Contains" => $"%{escapedValue}%",
+            _ => escapedValue
+        };
+        
+        var patternExpression = Expression.Constant(pattern);
+        var efFunctionsExpression = Expression.Property(null, typeof(EF), nameof(EF.Functions));
+        
+        // Use ILike for PostgreSQL, Like for SQL Server and InMemory
+        if (dbProvider == DbProviderEnum.PostgreSql)
+        {
+            var iLikeMethod = GetEfILikeMethod();
+            if (iLikeMethod == null)
+            {
+                throw new InvalidOperationException(
+                    "PostgreSQL case-insensitive operators (IStartsWith, IEndsWith, IContains, INotContains) require the " +
+                    "'Npgsql.EntityFrameworkCore.PostgreSQL' package to be installed. The ILike method was not found. " +
+                    "Either install the Npgsql package or use DbProviderEnum.SqlServer if targeting SQL Server.");
+            }
+            return Expression.Call(iLikeMethod, efFunctionsExpression, memberValue, patternExpression);
+        }
+        
+        return Expression.Call(EfLikeMethod, efFunctionsExpression, memberValue, patternExpression);
+    }
+    
+    /// <summary>
+    /// Escapes special LIKE pattern characters (%, _, [) in the input value.
+    /// </summary>
+    private static string EscapeLikePattern(string value)
+    {
+        // Escape the special characters used in LIKE patterns
+        // The escape character itself doesn't need escaping as we're using the default
+        return value
+            .Replace("[", "[[]")
+            .Replace("%", "[%]")
+            .Replace("_", "[_]");
+    }
+
+    private static Expression GetContainsExpression(
+        Expression memberValue, 
+        Expression constant, 
+        Expression memberHasValue, 
+        string[]? values, 
+        Type underlyingType, 
+        bool isNullable)
     {
         var hasValues = values is { Length: > 0 };
         var isString = underlyingType == typeof(string);

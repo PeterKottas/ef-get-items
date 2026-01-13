@@ -54,6 +54,7 @@ var result = await dbContext.Books.GetItems(request, b => b.Id, PropertyNameMapp
 
 - **Pagination** — Three modes: Expensive (full count), Cheap (has next page), None
 - **Filtering** — Rich operators with AND/OR logic and nested filters
+- **Case-insensitive filtering** — Dedicated operators using LIKE/ILIKE for SQL Server and PostgreSQL
 - **Sorting** — Multi-level sorting on any property
 - **ID filtering** — Include/exclude specific IDs with `Ids` and `ExceptIds`
 - **Nested properties** — Filter/sort through relationships
@@ -79,13 +80,15 @@ var options = new GetItemsOptions
 
 ## Filter Operators
 
-| Operator                                   | Description             |
-| ------------------------------------------ | ----------------------- |
-| `Eq`, `Neq`                                | Equal / Not equal       |
-| `Lt`, `Lte`, `Gt`, `Gte`                   | Comparison operators    |
-| `StartsWith`, `EndsWith`, `Contains`       | String matching         |
-| `ContainsAll`, `NotContains`               | Collection operations   |
-| `Flag`, `AnyFlag`, `NotFlag`, `NotAnyFlag` | Bitwise flag operations |
+| Operator                                   | Description                                            |
+| ------------------------------------------ | ------------------------------------------------------ |
+| `Eq`, `Neq`                                | Equal / Not equal                                      |
+| `Lt`, `Lte`, `Gt`, `Gte`                   | Comparison operators                                   |
+| `StartsWith`, `EndsWith`, `Contains`       | String matching (case-sensitive)                       |
+| `IStartsWith`, `IEndsWith`, `IContains`    | String matching (case-insensitive, uses LIKE/ILIKE)    |
+| `NotContains`, `INotContains`              | Does not contain (case-sensitive / case-insensitive)   |
+| `ContainsAll`, `NotContainsAll`            | Collection operations                                  |
+| `Flag`, `AnyFlag`, `NotFlag`, `NotAnyFlag` | Bitwise flag operations                                |
 
 ## Request Options
 
@@ -152,6 +155,57 @@ Console.WriteLine(result.QueryDebugView);
 // DbSet<Book>()
 //     .Where(b => b.Name.Contains("Great"))
 //     .OrderByDescending(b => b.PublishedOn)
+```
+
+## Case-Insensitive String Filtering
+
+Use the `I`-prefixed operators (`IStartsWith`, `IEndsWith`, `IContains`, `INotContains`) for case-insensitive string matching:
+
+```csharp
+var request = new BaseGetItemsRequest<BookPropertyNames, Guid>
+{
+    Filters = [
+        new() { Field = BookPropertyNames.Name, Operator = FilterOperatorEnum.IContains, Value = "great" }
+    ]
+};
+
+var result = await factory.GetItems(ctx => ctx.Books, request, b => b.Id, mapper);
+```
+
+The `DbProvider` option controls which SQL function is used:
+
+| Provider     | Function | Behavior                                      |
+| ------------ | -------- | --------------------------------------------- |
+| `PostgreSql` | `ILIKE`  | Explicitly case-insensitive (default)         |
+| `SqlServer`  | `LIKE`   | Case-insensitive (depends on collation)       |
+| `InMemory`   | `LIKE`   | For testing purposes                          |
+
+```csharp
+// Configure DbProvider globally if not using PostgreSQL
+GetItemsOptions.ConfigureDefault(options =>
+{
+    options.DbProvider = DbProviderEnum.SqlServer;
+});
+```
+
+> **Note:** PostgreSQL requires `Npgsql.EntityFrameworkCore.PostgreSQL` package. An exception is thrown if the package is not installed.
+
+> **Note:** Special characters (`%`, `_`, `[`) in filter values are automatically escaped.
+
+## Global Configuration
+
+Configure default options once at application startup:
+
+```csharp
+// In Program.cs or startup
+GetItemsOptions.ConfigureDefault(options =>
+{
+    options.PaginationHandling = PaginationHandlingEnum.Cheap;
+    options.DbProvider = DbProviderEnum.SqlServer; // Default is PostgreSql
+});
+
+// Reset to default behavior if needed
+GetItemsOptions.ResetDefault();
 ```
 
 ## Example Project

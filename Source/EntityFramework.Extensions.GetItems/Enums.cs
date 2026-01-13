@@ -1,6 +1,27 @@
 namespace EntityFramework.Extensions.GetItems;
 
 /// <summary>
+/// Specifies the database provider for provider-specific query optimizations.
+/// </summary>
+public enum DbProviderEnum
+{
+    /// <summary>
+    /// PostgreSQL. Uses ILIKE for case-insensitive string matching operators.
+    /// </summary>
+    PostgreSql,
+    
+    /// <summary>
+    /// Microsoft SQL Server. Uses LIKE for case-insensitive string matching (depends on collation).
+    /// </summary>
+    SqlServer,
+    
+    /// <summary>
+    /// In-memory database provider (for testing). Uses LIKE which may behave differently than real databases.
+    /// </summary>
+    InMemory
+}
+
+/// <summary>
 /// Specifies how pagination metadata should be calculated.
 /// </summary>
 public enum PaginationHandlingEnum
@@ -78,24 +99,44 @@ public enum FilterOperatorEnum
     Gte,
     
     /// <summary>
-    /// String starts with. For string properties only.
+    /// String starts with. For string properties only. Case-sensitive.
     /// </summary>
     StartsWith,
     
     /// <summary>
-    /// String ends with. For string properties only.
+    /// String ends with. For string properties only. Case-sensitive.
     /// </summary>
     EndsWith,
     
     /// <summary>
-    /// Contains. For strings: substring match. With Values array: checks if value is in the list.
+    /// Contains. For strings: substring match (case-sensitive). With Values array: checks if value is in the list.
     /// </summary>
     Contains,
     
     /// <summary>
-    /// Does not contain. Inverse of <see cref="Contains"/>.
+    /// Does not contain. Inverse of <see cref="Contains"/>. Case-sensitive.
     /// </summary>
     NotContains,
+    
+    /// <summary>
+    /// Case-insensitive string starts with. Uses LIKE/ILIKE depending on <see cref="GetItemsOptions.DbProvider"/>.
+    /// </summary>
+    IStartsWith,
+    
+    /// <summary>
+    /// Case-insensitive string ends with. Uses LIKE/ILIKE depending on <see cref="GetItemsOptions.DbProvider"/>.
+    /// </summary>
+    IEndsWith,
+    
+    /// <summary>
+    /// Case-insensitive contains. Uses LIKE/ILIKE depending on <see cref="GetItemsOptions.DbProvider"/>.
+    /// </summary>
+    IContains,
+    
+    /// <summary>
+    /// Case-insensitive does not contain. Inverse of <see cref="IContains"/>.
+    /// </summary>
+    INotContains,
     
     /// <summary>
     /// Contains all values. For collection properties, checks if all specified values are present.
